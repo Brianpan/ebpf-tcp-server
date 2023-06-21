@@ -11,6 +11,9 @@ int bpf_redir(struct __sk_buff * skb)
     if (skb->local_port != SERVER_PORT)
         return SK_PASS;
     
+    if (skb->len == 0)
+        return SK_PASS;
+
     struct sockmap_key skm_key = {
         .family = skb->family,
         .remote_ip4 = skb->remote_ip4,
