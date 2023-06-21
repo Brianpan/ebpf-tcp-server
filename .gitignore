@@ -1,0 +1,4 @@
+*.o
+bpffs
+ebpf-echo-server
+bench
