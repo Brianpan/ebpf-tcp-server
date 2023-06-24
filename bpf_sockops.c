@@ -25,9 +25,6 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     /* Only support IPv4 */
     if (skops->family != AF_INET)
         return 0;
-    
-    if (skops->remote_ip4 != skops->local_ip4)
-        return 0;
 
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
