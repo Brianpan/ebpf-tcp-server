@@ -12,7 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define TARGET_HOST "10.1.1.5"
+#define TARGET_HOST "192.168.248.128" //10.1.1.5
 #define TARGET_PORT 12345
 #define BENCH_COUNT 1
 #define BENCHMARK_RESULT_FILE "bench.txt"
@@ -31,6 +31,7 @@ static inline long time_diff_us(struct timeval *start, struct timeval *end)
 
 static void generateString(int size, char *str)
 {
+    printf("Generating String...\n");
     for (int i = 0; i < size - 1; i++)
         str[i] = 'A' + (rand() % 26);
     str[size - 1] = '\0';
@@ -50,6 +51,14 @@ static void bench(int size)
         perror("socket");
         exit(-1);
     }
+    
+    struct timeval timeout;
+    timeout.tv_sec = 3; // 3秒超時
+    timeout.tv_usec = 0;
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        perror("setsockopt");
+        exit(-1);
+    }
 
     struct sockaddr_in info = {
         .sin_family = PF_INET,
@@ -57,6 +66,7 @@ static void bench(int size)
         .sin_port = htons(TARGET_PORT),
     };
 
+    printf("Connecting...\n");
     if (connect(sock_fd, (struct sockaddr *)&info, sizeof(info)) == -1) {
         perror("connect");
         exit(-1);
@@ -64,17 +74,41 @@ static void bench(int size)
 
     struct sockaddr_in local_addr;
     socklen_t addr_len = sizeof(local_addr);
+    printf("Getting the socket name...\n");
     if (getsockname(sock_fd, (struct sockaddr *)&local_addr, &addr_len) == -1) {
       perror("getsockname");
       exit(-1);
     }
 
+    printf("Send & Recv...\n");
     gettimeofday(&start, NULL);
+  
     int send_len = send(sock_fd, msg_dum, strlen(msg_dum), 0);
+    if (send_len == -1) {
+        perror("send");
+        exit(-1);
+    }
+    printf("Finish Sending.\n");
+    
     int recv_len = recv(sock_fd, dummy, MAX_MSG_LEN, 0);
+    if (recv_len == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            printf("recv timeout occurred\n");
+        } else {
+            perror("recv");
+        }
+        exit(-1);
+    } else if (recv_len == 0) {
+        printf("Connection closed by peer\n");
+        exit(0);
+    } else {
+        dummy[recv_len] = '\0';
+    }
+    printf("Finish Receiving.\n");
+    
     gettimeofday(&end, NULL);
 
-    dummy[recv_len] = '\0';
+    printf("SHUTDOWN sock_fd\n");
     shutdown(sock_fd, SHUT_RDWR);
     close(sock_fd);
 
