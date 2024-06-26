@@ -54,7 +54,7 @@ static void bench(int size)
     }
     
     struct timeval timeout;
-    timeout.tv_sec = TIMEOUT; // 3秒超時
+    timeout.tv_sec = TIMEOUT;
     timeout.tv_usec = 0;
     if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         perror("setsockopt");
