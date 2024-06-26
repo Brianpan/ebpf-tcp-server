@@ -12,13 +12,14 @@
 #include <time.h>
 #include <unistd.h>
 
-#define TARGET_HOST "192.168.248.128" //10.1.1.5
+#define TARGET_HOST "127.0.0.1" //10.1.1.5
 #define TARGET_PORT 12345
-#define BENCH_COUNT 1
+#define BENCH_COUNT 1 //1
 #define BENCHMARK_RESULT_FILE "bench.txt"
-#define MAX_MSG_LEN 50
-#define STEP 50
+#define MAX_MSG_LEN 50 //50
+#define STEP 50 //50
 #define MAX_INDEX MAX_MSG_LEN / STEP
+#define TIMEOUT 3
 
 static long time_res[MAX_INDEX] = {0};
 static FILE *bench_fd;
@@ -53,7 +54,7 @@ static void bench(int size)
     }
     
     struct timeval timeout;
-    timeout.tv_sec = 3; // 3秒超時
+    timeout.tv_sec = TIMEOUT; // 3秒超時
     timeout.tv_usec = 0;
     if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         perror("setsockopt");
@@ -108,7 +109,7 @@ static void bench(int size)
     
     gettimeofday(&end, NULL);
 
-    printf("SHUTDOWN sock_fd\n");
+    printf("SHUTDOWN sock_fd\n\n");
     shutdown(sock_fd, SHUT_RDWR);
     close(sock_fd);
 

@@ -9,7 +9,7 @@ static inline void update_sockmap_ops(struct bpf_sock_ops *skops)
         .remote_port  = bpf_ntohl(skops->remote_port),
         .local_port = skops->local_port,
     };
-    
+
     int ret;
     ret = bpf_sock_hash_update(skops, &sockmap_ops, &skm_key, BPF_NOEXIST);
     
@@ -17,12 +17,12 @@ static inline void update_sockmap_ops(struct bpf_sock_ops *skops)
         bpf_printk("Update map failed. %d\n", -ret);
         return;
     }
+    bpf_printk("Update map success.\n");
 }
 
 SEC("sockops")
 int bpf_sockmap(struct bpf_sock_ops *skops)
 {
-    /* Only support IPv4 */
     if (skops->family != AF_INET)
         return 0;
 
@@ -39,3 +39,4 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
 }
 
 SEC("license") const char __license[] = "GPL";
+

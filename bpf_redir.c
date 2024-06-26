@@ -36,8 +36,11 @@ int bpf_redir(struct __sk_buff * skb)
         ret = bpf_sk_redirect_hash(skb, &sockmap_ops, &skm_key, 0);
     } 
     
-    if (ret != SK_PASS)
+    if (ret != SK_PASS) {
         bpf_printk("bpf_sk_redirect_hash() failed %d, error \n", -ret);
+    } else {
+        bpf_printk("bpf_sk_redirect_hash() success, redirected\n");
+    }
         
     return ret;   
 }
