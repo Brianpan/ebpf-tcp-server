@@ -1,5 +1,5 @@
 #include "bpf_sockops.h"
-
+#include <stdint.h>
 #define SERVER_PORT 12345
    
 SEC("sk_skb/stream_verdict")
@@ -23,8 +23,10 @@ int bpf_redir(struct __sk_buff * skb)
             .remote_port  = skb->local_port,
             .local_port = bpf_ntohl(skb->remote_port),
         };
+
         ret = bpf_sk_redirect_hash(skb, &sockmap_ops, &skm_key,
                                    BPF_F_INGRESS);
+        // store a timestamp key: sockmap_key, ts
     } else {
         struct sockmap_key skm_key = {
             .family = skb->family,

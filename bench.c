@@ -12,7 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define TARGET_HOST "192.168.248.128" //10.1.1.5
+#define TARGET_HOST "192.168.1.139" //10.1.1.5
 #define TARGET_PORT 12345
 #define BENCH_COUNT 1 //1
 #define BENCHMARK_RESULT_FILE "bench.txt"
@@ -80,7 +80,8 @@ static void bench(int size)
       perror("getsockname");
       exit(-1);
     }
-
+    // add sleep
+    // sleep(1);
     printf("Send & Recv...\n");
     gettimeofday(&start, NULL);
   
