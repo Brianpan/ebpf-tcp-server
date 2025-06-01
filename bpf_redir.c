@@ -1,7 +1,7 @@
 #include "bpf_sockops.h"
 #include <stdint.h>
 #define SERVER_PORT 12345
-   
+
 SEC("sk_skb/stream_verdict")
 int bpf_redir(struct __sk_buff * skb)
 {
@@ -16,15 +16,19 @@ int bpf_redir(struct __sk_buff * skb)
     
     int ret;
     if (skb->remote_ip4 == skb->local_ip4) {
+        // to find out socket from local port -> ebpf server
         struct sockmap_key skm_key = {
-            .family = skb->family,
-            .remote_ip4 = skb->remote_ip4,
-            .local_ip4  = skb->local_ip4,
             .remote_port  = skb->local_port,
             .local_port = bpf_ntohl(skb->remote_port),
         };
-
+        bpf_printk("redirect %d->%d", skb->local_port, bpf_ntohl(skb->remote_port));
         ret = bpf_sk_redirect_hash(skb, &sockmap_ops, &skm_key,
+                                   BPF_F_INGRESS);
+        if (ret != SK_PASS)
+            ret = bpf_sk_redirect_hash(skb, &sockmap_ops, &skm_key,
+                                   BPF_F_INGRESS);
+        if (ret != SK_PASS)
+            ret = bpf_sk_redirect_hash(skb, &sockmap_ops, &skm_key,
                                    BPF_F_INGRESS);
         // store a timestamp key: sockmap_key, ts
     } else {
