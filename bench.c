@@ -113,7 +113,7 @@ static void *bench_worker(__attribute__((unused)))
         exit(-1);
     }
     // usleep
-    usleep(100000);
+    usleep(10000);
     gettimeofday(&start, NULL);
     send(sock_fd, msg_dum, strlen(msg_dum), 0);
     recv(sock_fd, dummy, MAX_MSG_LEN, 0);

@@ -22,7 +22,8 @@ int bpf_redir(struct __sk_buff * skb)
             .remote_port  = skb->local_port,
             .local_port = bpf_ntohl(skb->remote_port),
         };
-        bpf_printk("redirect %d->%d", skb->local_port, bpf_ntohl(skb->remote_port));
+
+        // bpf_printk("redirect %d->%d", skb->local_port, bpf_ntohl(skb->remote_port));
         ret = bpf_sk_redirect_hash(skb, &sockmap_ops, &skm_key,
                                    BPF_F_INGRESS);
         if (ret != SK_PASS)
@@ -44,9 +45,9 @@ int bpf_redir(struct __sk_buff * skb)
     } 
     
     if (ret != SK_PASS) {
-        bpf_printk("bpf_sk_redirect_hash() failed %d, error \n", -ret);
+        // bpf_printk("bpf_sk_redirect_hash() failed %d, error \n", -ret);
     } else {
-        bpf_printk("bpf_sk_redirect_hash() success, redirected\n");
+        // bpf_printk("bpf_sk_redirect_hash() success, redirected\n");
     }
         
     return ret;   

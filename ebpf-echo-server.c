@@ -62,10 +62,10 @@ int main(int argc, char **argv)
                 int client = accept(sock_fd, (struct sockaddr *) &client_addr, &clientlen);
                 if (client < 0)
                     error("accept");
-                printf("Connection accepted from %s:%d\n", inet_ntoa(client_addr.sin_addr),
-                    ntohs(client_addr.sin_port));
+                // printf("Connection accepted from %s:%d\n", inet_ntoa(client_addr.sin_addr),
+                //     ntohs(client_addr.sin_port));
             } else {
-                printf("receive events from %d", ep_events[i].events);
+                // printf("receive events from %d", ep_events[i].events);
             }
         }
         

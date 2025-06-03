@@ -18,10 +18,10 @@ static inline void update_sockmap_ops(struct bpf_sock_ops *skops)
     ret = bpf_sock_hash_update(skops, &sockmap_ops, &skm_key, BPF_NOEXIST);
     
     if (ret) {
-        bpf_printk("Update map failed. %d\n", -ret);
+        // bpf_printk("Update map failed. %d\n", -ret);
         return;
     }
-    bpf_printk("Update map success.\n");
+    // bpf_printk("Update map success.\n");
 }
 
 SEC("sockops")
@@ -38,7 +38,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         // outgoing connection established SYNACK
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-            bpf_printk("Add entry to SOCKHASH map op: %d => %u->%u : %lx (local_port : sk)\n", skops->op, lport, rport, bpf_get_socket_cookie(skops));
+            // bpf_printk("Add entry to SOCKHASH map op: %d => %u->%u : %lx (local_port : sk)\n", skops->op, lport, rport, bpf_get_socket_cookie(skops));
             update_sockmap_ops(skops);
             break;
         default:
