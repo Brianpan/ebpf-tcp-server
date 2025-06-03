@@ -1,5 +1,4 @@
 #include <arpa/inet.h>
-#include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -12,16 +11,62 @@
 #include <time.h>
 #include <unistd.h>
 
-#define TARGET_HOST "192.168.1.139" //10.1.1.5
+#define TARGET_HOST "127.0.0.1"
 #define TARGET_PORT 12345
-#define BENCH_COUNT 1 //1
+#define BENCH_COUNT 10
 #define BENCHMARK_RESULT_FILE "bench.txt"
-#define MAX_MSG_LEN 50 //50
-#define STEP 50 //50
-#define MAX_INDEX MAX_MSG_LEN / STEP
-#define TIMEOUT 1
 
-static long time_res[MAX_INDEX] = {0};
+/* length of unique message (TODO below) should shorter than this */
+#define MAX_MSG_LEN 32
+
+/*
+ * Too much concurrent connection would be treated as sort of DDoS attack
+ * (mainly caused by configs (kernel: "tcp_max_syn_backlog" and
+ * "somaxconn". Application (kecho): "backlog"). Nevertheless, default
+ * maximum number of fd per-process is 1024. If you insist to proceed
+ * the benchmarking with "MAX_THREAD" larger than these limitation,
+ * perform following modifications:
+ *
+ * (1)
+ * Use following commands to adjust kernel attributes:
+ *     a. "$ sudo sysctl net.core.somaxconn={depends_on_MAX_THREAD}"
+ *     b. "$ sudo sysctl net.ipv4.tcp_max_syn_backlog={ditto}"
+ * Note that "$ sudo sysctl net.core.somaxconn" can get current value.
+ * "somaxconn" is max amount of established connection, whereas
+ * "tcp_max_syn_backlog" is max amount of connection at first step
+ * of TCP 3-way handshake (SYN).
+ *
+ * (2)
+ * Use command "$ ulimit -n {ditto}" to enlarge limitation of fd
+ * per-process. Note that this modification only effects on process
+ * which executes the command and its child processes.
+ *
+ * (3)
+ * Specify "backlog" with value as large as "net.ipv4.tcp_max_syn_backlog".
+ *
+ * Remember to reset the modifications after benchmarking to keep
+ * stability of running machine
+ */
+#define MAX_THREAD 1000
+
+/*
+ * TODO: provide unique message (maybe generate dynamically, or somehow) for
+ * each worker could produce benchmarking result which is more conforms to
+ * realworld usage.
+ */
+static const char *msg_dum = "dummy message";
+
+static pthread_t pt[MAX_THREAD];
+
+/* block all workers before they are all ready to benchmarking kecho */
+static int n_retry;
+
+static pthread_mutex_t res_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t worker_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t worker_wait = PTHREAD_COND_INITIALIZER;
+
+static long time_res[MAX_THREAD] = {0};
+static int idx = 0; /* for indexing "time_res" */
 static FILE *bench_fd;
 
 static inline long time_diff_us(struct timeval *start, struct timeval *end)
@@ -30,34 +75,30 @@ static inline long time_diff_us(struct timeval *start, struct timeval *end)
            (end->tv_usec - start->tv_usec);
 }
 
-static void generateString(int size, char *str)
-{
-    printf("Generating String...\n");
-    for (int i = 0; i < size - 1; i++)
-        str[i] = 'A' + (rand() % 26);
-    str[size - 1] = '\0';
-}
-
-static void bench(int size)
+static void *bench_worker(__attribute__((unused)))
 {
     int sock_fd;
-    char *msg_dum = malloc(size * sizeof(char));
     char dummy[MAX_MSG_LEN];
-    memset(dummy, 0, sizeof(dummy));
     struct timeval start, end;
-    generateString(size, msg_dum);
-  
+
+    /* wait until all workers created */
+    pthread_mutex_lock(&worker_lock);
+    if (++n_retry == MAX_THREAD) {
+        pthread_cond_broadcast(&worker_wait);
+    } else {
+        while (n_retry < MAX_THREAD) {
+            if (pthread_cond_wait(&worker_wait, &worker_lock)) {
+                puts("pthread_cond_wait failed");
+                exit(-1);
+            }
+        }
+    }
+    pthread_mutex_unlock(&worker_lock);
+    /* all workers are ready, let's start bombing the server */
+
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (sock_fd == -1) {
         perror("socket");
-        exit(-1);
-    }
-    
-    struct timeval timeout;
-    timeout.tv_sec = TIMEOUT;
-    timeout.tv_usec = 0;
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-        perror("setsockopt");
         exit(-1);
     }
 
@@ -67,50 +108,17 @@ static void bench(int size)
         .sin_port = htons(TARGET_PORT),
     };
 
-    printf("Connecting...\n");
-    if (connect(sock_fd, (struct sockaddr *)&info, sizeof(info)) == -1) {
+    if (connect(sock_fd, (struct sockaddr *) &info, sizeof(info)) == -1) {
         perror("connect");
         exit(-1);
     }
-
-    struct sockaddr_in local_addr;
-    socklen_t addr_len = sizeof(local_addr);
-    printf("Getting the socket name...\n");
-    if (getsockname(sock_fd, (struct sockaddr *)&local_addr, &addr_len) == -1) {
-      perror("getsockname");
-      exit(-1);
-    }
-    // add sleep
-    // sleep(1);
-    printf("Send & Recv...\n");
+    // usleep
+    usleep(100000);
     gettimeofday(&start, NULL);
-  
-    int send_len = send(sock_fd, msg_dum, strlen(msg_dum), 0);
-    if (send_len == -1) {
-        perror("send");
-        exit(-1);
-    }
-    printf("Finish Sending.\n");
-    
-    int recv_len = recv(sock_fd, dummy, MAX_MSG_LEN, 0);
-    if (recv_len == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            printf("recv timeout occurred\n");
-        } else {
-            perror("recv");
-        }
-        exit(-1);
-    } else if (recv_len == 0) {
-        printf("Connection closed by peer\n");
-        exit(0);
-    } else {
-        dummy[recv_len] = '\0';
-    }
-    printf("Finish Receiving.\n");
-    
+    send(sock_fd, msg_dum, strlen(msg_dum), 0);
+    recv(sock_fd, dummy, MAX_MSG_LEN, 0);
     gettimeofday(&end, NULL);
 
-    printf("SHUTDOWN sock_fd\n\n");
     shutdown(sock_fd, SHUT_RDWR);
     close(sock_fd);
 
@@ -118,25 +126,52 @@ static void bench(int size)
         puts("echo message validation failed");
         exit(-1);
     }
-    time_res[size / STEP - 1] += time_diff_us(&start, &end);
-    free(msg_dum);
+
+    pthread_mutex_lock(&res_lock);
+    time_res[idx++] += time_diff_us(&start, &end);
+    pthread_mutex_unlock(&res_lock);
+
+    pthread_exit(NULL);
 }
 
-int main(int argc, char **argv)
+static void create_worker(int thread_qty)
+{
+    for (int i = 0; i < thread_qty; i++) {
+        if (pthread_create(&pt[i], NULL, bench_worker, NULL)) {
+            puts("thread creation failed");
+            exit(-1);
+        }
+    }
+}
+
+static void bench(void)
+{
+    for (int i = 0; i < BENCH_COUNT; i++) {
+        n_retry = 0;
+
+        create_worker(MAX_THREAD);
+
+        for (int x = 0; x < MAX_THREAD; x++)
+            pthread_join(pt[x], NULL);
+
+        idx = 0;
+    }
+
+    for (int i = 0; i < MAX_THREAD; i++)
+        fprintf(bench_fd, "%d %ld\n", i, time_res[i] /= BENCH_COUNT);
+}
+
+int main(void)
 {
     bench_fd = fopen(BENCHMARK_RESULT_FILE, "w");
     if (!bench_fd) {
         perror("fopen");
         return -1;
     }
-    for (int size = 50; size <= MAX_MSG_LEN; size += STEP) {
-        for (int i = 0; i < BENCH_COUNT; i++) {
-            bench(size);
-        }
-    }
-    puts("correct");
-    for (int i = 1; i <= MAX_INDEX; i++)
-        fprintf(bench_fd, "%d %ld\n", i * STEP, time_res[i - 1] / BENCH_COUNT);
+
+    bench();
+
     fclose(bench_fd);
+
     return 0;
 }

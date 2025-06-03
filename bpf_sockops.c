@@ -34,9 +34,9 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     __u32 lport = skops->local_port;
 
     switch (skops->op) {
-        // incoming connection established
+        // incoming connection established ACK
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        // outgoing connection established
+        // outgoing connection established SYNACK
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
             bpf_printk("Add entry to SOCKHASH map op: %d => %u->%u : %lx (local_port : sk)\n", skops->op, lport, rport, bpf_get_socket_cookie(skops));
             update_sockmap_ops(skops);

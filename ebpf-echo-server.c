@@ -9,7 +9,8 @@
 
 #define SERVER_PORT 12345
 #define BUF_SIZE 1024
-#define EPOLL_SIZE 512
+#define EPOLL_SIZE 4096
+#define BACKLOG 4096
 
 void error(char *msg)
 {
@@ -34,7 +35,7 @@ int main(int argc, char **argv)
     if (bind(sock_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         error("Fail to bind.");
   
-    if (listen(sock_fd, 1024) < 0)
+    if (listen(sock_fd, BACKLOG) < 0)
         error("Fail to listen");
 
     // epoll create

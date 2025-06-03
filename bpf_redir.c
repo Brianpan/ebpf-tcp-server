@@ -17,6 +17,7 @@ int bpf_redir(struct __sk_buff * skb)
     int ret;
     if (skb->remote_ip4 == skb->local_ip4) {
         // to find out socket from local port -> ebpf server
+        // socket sends ACK packet
         struct sockmap_key skm_key = {
             .remote_port  = skb->local_port,
             .local_port = bpf_ntohl(skb->remote_port),
